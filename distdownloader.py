@@ -12,7 +12,12 @@ __email__ = "jason860306@gmail.com"
 
 
 import multiprocessing as multiproc
-import time
+import subprocess as subproc
+import threading
+import os
+
+
+log = None
 
 
 class Consumer(multiproc.Process):
@@ -27,10 +32,10 @@ class Consumer(multiproc.Process):
             next_task = self.task_queue.get()
             if next_task is None:
                 # Poison pill means shutdown
-                print ('%s: Exiting' % proc_name)
+                print '%s: Exiting' % proc_name
                 self.task_queue.task_done()
                 break
-            print ('%s: %s' % (proc_name, next_task))
+            print '%s: %s' % (proc_name, next_task)
             answer = next_task()  # __call__()
             self.task_queue.task_done()
             self.result_queue.put(answer)
@@ -39,34 +44,41 @@ class Consumer(multiproc.Process):
 
 class Task(object):
     """
-    from multiprocessing import Process, Pipe
-
-    def f(conn):
-        conn.send([42, None, 'hello'])
-        conn.close()
-
-    if __name__ == '__main__':
-        parent_conn, child_conn = Pipe()
-        p = Process(target=f, args=(child_conn,))
-        p.start()
-        p.join()
-        print(parent_conn.recv())   # prints "[42, None, 'hello']"
+    ret = interact_run('ping 192.168.0.102')
+    if ret[0] == 0 and ('timed out' not in ret[1]):
+        FREEMV_INTERACT_RESULT = 0
+    else:
+        FREEMV_INTERACT_RESULT = 1
     """
-    def __init__(self, a, b):
-        self.a = a
-        self.b = b
+    def __init__(self, url, md5):
+        self.url = url
+        self.fmd5 = md5
+        self.ret_val = None
+        self.ret_info = None
 
-    def __call__(self):
-        time.sleep(0.1)  # pretend to take some time to do the work
-        return '%s * %s = %s' % (self.a, self.b, self.a * self.b)
+    def __call__(self, cmd, timeout=60):
+        def timeout_trigger(sub_process):
+            """timeout function trigger"""
+            os.system("kill -9" + str(sub_process.pid))
+        timeout = float(timeout)
+        pipe = subproc.Popen(cmd, 0, None, None, subproc.PIPE, subproc.PIPE,
+                             shell=True)
+        timer = threading.Timer(timeout*60, timeout_trigger, args=(pipe,))
+        timer.start()
+        pipe.wait()
+        timer.cancel()
+
+        self.ret_val = pipe.returncode
+        self.ret_info = pipe.stdout.read()
+        return self.ret_val, self.ret_info
 
     def __str__(self):
-        return '%s * %s' % (self.a, self.b)
+        return '{code}:{info}'.format(code=self.ret_val, info=self.ret_info)
 
 
 class DistDownloader(object):
     """
-    
+
     """
     def __init__(self):
         # Establish communication queues
@@ -75,10 +87,10 @@ class DistDownloader(object):
 
     def start(self):
         # Start consumers
-        num_consumers = multiproc.cpu_count()
-        print ('Creating %d consumers' % num_consumers)
+        num = multiproc.cpu_count()
+        print ('Creating %d consumers' % num)
         consumers = [Consumer(self.tasks, self.results)
-                     for i in xrange(num_consumers)]
+                     for i in xrange(num)]
         for consumer in consumers:
             consumer.start()
 
@@ -89,6 +101,7 @@ class DistDownloader(object):
     def join_all(self):
         # Wait for all of the tasks to finish
         self.tasks.join()
+
 
 if __name__ == '__main__':
     downer = DistDownloader()

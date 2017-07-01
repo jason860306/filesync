@@ -1,0 +1,123 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+APHash	filesync\hash.py	/^    def APHash(key):$/;"	kind:member	line:93
+BKDRHash	filesync\hash.py	/^    def BKDRHash(key):$/;"	kind:member	line:63
+CHARSET_UTF8	filesync\pymysql.py	/^CHARSET_UTF8 = "utf8"$/;"	kind:variable	line:31
+CONN_TIMEOUT	filesync\pymysql.py	/^CONN_TIMEOUT = 10$/;"	kind:variable	line:30
+CURSOR_MODE	filesync\pymysql.py	/^CURSOR_MODE = 0$/;"	kind:variable	line:20
+Consumer	filesync\distdownloader.py	/^class Consumer(multiproc.Process):$/;"	kind:class	line:23
+DB_PORT	filesync\pymysql.py	/^DB_PORT = 3306$/;"	kind:variable	line:29
+DEKHash	filesync\hash.py	/^    def DEKHash(key):$/;"	kind:member	line:86
+DICTCURSOR_MODE	filesync\pymysql.py	/^DICTCURSOR_MODE = 1$/;"	kind:variable	line:21
+DJBHash	filesync\hash.py	/^    def DJBHash(key):$/;"	kind:member	line:79
+DistDownloader	filesync\distdownloader.py	/^class DistDownloader(object):$/;"	kind:class	line:77
+ELFHash	filesync\hash.py	/^    def ELFHash(key):$/;"	kind:member	line:51
+FETCH_ALL	filesync\pymysql.py	/^FETCH_ALL = 2$/;"	kind:variable	line:27
+FETCH_MANY	filesync\pymysql.py	/^FETCH_MANY = 1$/;"	kind:variable	line:26
+FETCH_ONE	filesync\pymysql.py	/^FETCH_ONE = 0$/;"	kind:variable	line:25
+FileInfo	filesync\filesync.py	/^    class FileInfo(object):$/;"	kind:class	line:43
+FileSync	filesync\filesync.py	/^class FileSync(threading.Thread, object):$/;"	kind:class	line:39
+GeneralHash	filesync\hash.py	/^class GeneralHash(object):$/;"	kind:class	line:14
+HELP_MSG	filesync\filesync.py	/^               "\\t-o,--output  output directory for downloading\\n"$/;"	kind:variable	line:201
+JSHash	filesync\hash.py	/^    def JSHash(key):$/;"	kind:member	line:29
+MYSQL_DB_NAME	filesync\filesync.py	/^MYSQL_DB_NAME = "VodSlave"$/;"	kind:variable	line:28
+MYSQL_DOMAIN	filesync\filesync.py	/^MYSQL_DOMAIN = "localhost"$/;"	kind:variable	line:25
+MYSQL_PASSWD	filesync\filesync.py	/^MYSQL_PASSWD = ""$/;"	kind:variable	line:27
+MYSQL_TBL_BUSINES_INFO	filesync\filesync.py	/^MYSQL_TBL_BUSINES_INFO = "business_info"$/;"	kind:variable	line:30
+MYSQL_TBL_FILEINFO	filesync\filesync.py	/^MYSQL_TBL_FILEINFO = "file_info"$/;"	kind:variable	line:29
+MYSQL_USER	filesync\filesync.py	/^MYSQL_USER = "root"$/;"	kind:variable	line:26
+MySQLdb	filesync\pymysql.py	/^import MySQLdb$/;"	kind:namespace	line:14
+MySQLdb	filesync\pymysql.py	/^import MySQLdb.cursors$/;"	kind:namespace	line:15
+PJWHash	filesync\hash.py	/^    def PJWHash(key):$/;"	kind:member	line:36
+PyMySql	filesync\pymysql.py	/^class PyMySql:$/;"	kind:class	line:34
+RSHash	filesync\hash.py	/^    def RSHash(key):$/;"	kind:member	line:19
+SDBMHash	filesync\hash.py	/^    def SDBMHash(key):$/;"	kind:member	line:71
+SRC_HOST	filesync\filesync.py	/^SRC_HOST = "192.168.58.39"$/;"	kind:variable	line:32
+SRC_PORT	filesync\filesync.py	/^SRC_PORT = 81$/;"	kind:variable	line:33
+SSCURSOR_MODE	filesync\pymysql.py	/^SSCURSOR_MODE = 2$/;"	kind:variable	line:22
+SSDICTCURSOR_MODE	filesync\pymysql.py	/^SSDICTCURSOR_MODE = 3$/;"	kind:variable	line:23
+STORE_RESULT_MODE	filesync\pymysql.py	/^STORE_RESULT_MODE = 0$/;"	kind:variable	line:17
+TASK_NUM	filesync\filesync.py	/^TASK_NUM = 10$/;"	kind:variable	line:35
+TMP_OUTPUT	filesync\filesync.py	/^TMP_OUTPUT = "\/tmp\/output"$/;"	kind:variable	line:36
+Task	filesync\distdownloader.py	/^class Task(object):$/;"	kind:class	line:45
+USE_RESULT_MODE	filesync\pymysql.py	/^USE_RESULT_MODE = 1$/;"	kind:variable	line:18
+__author__	filesync\distdownloader.py	/^__author__ = 'szj0306'  # 志杰$/;"	kind:variable	line:6
+__author__	filesync\filesync.py	/^__author__ = 'szj0306'  # 志杰$/;"	kind:variable	line:6
+__author__	filesync\hash.py	/^__author__ = 'szj0306'  # 志杰$/;"	kind:variable	line:6
+__author__	filesync\pymysql.py	/^__author__ = 'szj0306'  # 志杰$/;"	kind:variable	line:6
+__call__	filesync\distdownloader.py	/^    def __call__(self, cmd, timeout=60):$/;"	kind:member	line:57
+__date__	filesync\distdownloader.py	/^__date__ = '6\/30\/17 6:57 PM'$/;"	kind:variable	line:7
+__date__	filesync\filesync.py	/^__date__ = '6\/29\/17 5:11 PM'$/;"	kind:variable	line:7
+__date__	filesync\hash.py	/^__date__ = '6\/30\/17 3:33 PM'$/;"	kind:variable	line:7
+__date__	filesync\pymysql.py	/^__date__ = '6\/30\/17 12:21 PM'$/;"	kind:variable	line:7
+__del__	filesync\pymysql.py	/^    def __del__(self):$/;"	kind:member	line:41
+__email__	filesync\distdownloader.py	/^__email__ = "jason860306@gmail.com"$/;"	kind:variable	line:10
+__email__	filesync\filesync.py	/^__email__ = "jason860306@gmail.com"$/;"	kind:variable	line:10
+__email__	filesync\hash.py	/^__email__ = "jason860306@gmail.com"$/;"	kind:variable	line:10
+__email__	filesync\pymysql.py	/^__email__ = "jason860306@gmail.com"$/;"	kind:variable	line:10
+__file__	filesync\distdownloader.py	/^__file__ = '$'$/;"	kind:variable	line:5
+__file__	filesync\filesync.py	/^__file__ = '$'$/;"	kind:variable	line:5
+__file__	filesync\hash.py	/^__file__ = '$'$/;"	kind:variable	line:5
+__file__	filesync\pymysql.py	/^__file__ = '$'$/;"	kind:variable	line:5
+__init__	filesync\distdownloader.py	/^    def __init__(self):$/;"	kind:member	line:81
+__init__	filesync\distdownloader.py	/^    def __init__(self, a, b):$/;"	kind:member	line:53
+__init__	filesync\distdownloader.py	/^    def __init__(self, task_queue, result_queue):$/;"	kind:member	line:24
+__init__	filesync\filesync.py	/^        def __init__(self):$/;"	kind:member	line:47
+__init__	filesync\filesync.py	/^    def __init__(self):$/;"	kind:member	line:67
+__init__	filesync\pymysql.py	/^    def __init__(self):$/;"	kind:member	line:38
+__license__	filesync\distdownloader.py	/^__license__ = "Public Domain"$/;"	kind:variable	line:8
+__license__	filesync\filesync.py	/^__license__ = "Public Domain"$/;"	kind:variable	line:8
+__license__	filesync\hash.py	/^__license__ = "Public Domain"$/;"	kind:variable	line:8
+__license__	filesync\pymysql.py	/^__license__ = "Public Domain"$/;"	kind:variable	line:8
+__str__	filesync\distdownloader.py	/^    def __str__(self):$/;"	kind:member	line:73
+__version__	filesync\distdownloader.py	/^__version__ = '$'$/;"	kind:variable	line:9
+__version__	filesync\filesync.py	/^__version__ = '$'$/;"	kind:variable	line:9
+__version__	filesync\hash.py	/^__version__ = '$'$/;"	kind:variable	line:9
+__version__	filesync\pymysql.py	/^__version__ = '$'$/;"	kind:variable	line:9
+_open_db	filesync\filesync.py	/^    def _open_db(self):$/;"	kind:member	line:183
+close	filesync\pymysql.py	/^    def close(self):$/;"	kind:member	line:58
+connect	filesync\pymysql.py	/^    def connect(self, host, user, passwd, dbname, timeout=CONN_TIMEOUT,$/;"	kind:member	line:45
+cursors	filesync\pymysql.py	/^import MySQLdb.cursors$/;"	kind:namespace	line:15
+daemon	filesync\filesync.py	/^    daemon = False$/;"	kind:variable	line:216
+distdler	filesync\filesync.py	/^import distdownloader as distdler$/;"	kind:namespace	line:22
+distdownloader.py	filesync\distdownloader.py	1;"	kind:file	line:1
+downer	filesync\distdownloader.py	/^    downer = DistDownloader()$/;"	kind:variable	line:105
+enque_task	filesync\distdownloader.py	/^    def enque_task(self, task):$/;"	kind:member	line:95
+execute	filesync\pymysql.py	/^    def execute(self, sqltext, args=None, mode=CURSOR_MODE, many=False):$/;"	kind:member	line:108
+fetch_executeresult	filesync\pymysql.py	/^    def fetch_executeresult(self, cursor, mode=FETCH_ONE, rows=1):$/;"	kind:member	line:146
+fetch_file_list	filesync\filesync.py	/^    def fetch_file_list(self, tbl_name, offset, num):$/;"	kind:member	line:138
+fetch_filetbl_list	filesync\filesync.py	/^    def fetch_filetbl_list(self):$/;"	kind:member	line:114
+fetch_queryresult	filesync\pymysql.py	/^    def fetch_queryresult(self, result, maxrows=-1, how=0, moreinfo=False):$/;"	kind:member	line:83
+filesync.py	filesync\filesync.py	1;"	kind:file	line:1
+fsync	filesync\filesync.py	/^    fsync = FileSync()$/;"	kind:variable	line:217
+getopt	filesync\filesync.py	/^import getopt$/;"	kind:namespace	line:14
+hash.py	filesync\hash.py	1;"	kind:file	line:1
+init	filesync\filesync.py	/^    def init(self):$/;"	kind:member	line:81
+join_all	filesync\distdownloader.py	/^    def join_all(self):$/;"	kind:member	line:99
+log	filesync\distdownloader.py	/^log = None$/;"	kind:variable	line:20
+multiproc	filesync\distdownloader.py	/^import multiprocessing as multiproc$/;"	kind:namespace	line:14
+mylog	filesync\filesync.py	/^import logging as mylog$/;"	kind:namespace	line:15
+num_consumers	filesync\distdownloader.py	/^    num_consumers = multiproc.cpu_count()$/;"	kind:variable	line:114
+num_jobs	filesync\distdownloader.py	/^    num_jobs = 10$/;"	kind:variable	line:109
+os	filesync\distdownloader.py	/^import os$/;"	kind:namespace	line:17
+os	filesync\filesync.py	/^import os$/;"	kind:namespace	line:16
+parse	filesync\filesync.py	/^        def parse(self):$/;"	kind:member	line:53
+prepare_output	filesync\filesync.py	/^    def prepare_output(self):$/;"	kind:member	line:94
+printAuthors	filesync\pymysql.py	/^def printAuthors(res, mode=0, lines=0):$/;"	kind:function	line:167
+pymysql	filesync\filesync.py	/^import pymysql$/;"	kind:namespace	line:21
+pymysql.py	filesync\pymysql.py	1;"	kind:file	line:1
+query	filesync\pymysql.py	/^    def query(self, sqltext, mode=STORE_RESULT_MODE):$/;"	kind:member	line:64
+run	filesync\distdownloader.py	/^    def run(self):$/;"	kind:member	line:29
+run	filesync\filesync.py	/^    def run(self):$/;"	kind:member	line:166
+start	filesync\distdownloader.py	/^    def start(self):$/;"	kind:member	line:86
+string	filesync\filesync.py	/^import string$/;"	kind:namespace	line:18
+subproc	filesync\distdownloader.py	/^import subprocess as subproc$/;"	kind:namespace	line:15
+sys	filesync\filesync.py	/^import sys$/;"	kind:namespace	line:17
+threading	filesync\distdownloader.py	/^import threading$/;"	kind:namespace	line:16
+threading	filesync\filesync.py	/^import threading$/;"	kind:namespace	line:19
+time	filesync\filesync.py	/^import time$/;"	kind:namespace	line:20
+timeout_trigger	filesync\distdownloader.py	/^        def timeout_trigger(sub_process):$/;"	kind:function	line:58

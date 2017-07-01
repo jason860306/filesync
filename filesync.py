@@ -11,16 +11,15 @@ __email__ = "jason860306@gmail.com"
 # '$'
 
 
-import binascii
 import getopt
 import logging as mylog
 import os
 import sys
 import string
-import pymysql
 import threading
 import time
-from multiprocessing import Process, Queue
+import pymysql
+import distdownloader as distdler
 
 
 MYSQL_DOMAIN = "localhost"
@@ -30,8 +29,8 @@ MYSQL_DB_NAME = "VodSlave"
 MYSQL_TBL_FILEINFO = "file_info"
 MYSQL_TBL_BUSINES_INFO = "business_info"
 
-SRC_HOST = "192.168.58.39"
-SRC_PORT = 81
+VODSLAVE_HOST = "192.168.58.39"
+VODSLAVE_PORT = 81
 
 TASK_NUM = 10
 TMP_OUTPUT = "/tmp/output"
@@ -76,6 +75,7 @@ class FileSync(threading.Thread, object):
         self.all_tbl = {}
         self.cur_tbl = ()
         self.file_list = []
+        self.downer = None
         super(FileSync, self).__init__(name="thread for filesync")
 
     def init(self):
@@ -88,6 +88,8 @@ class FileSync(threading.Thread, object):
         tbl_item_offset = self.cur_tbl[1][1]
         num = min(tbl_item_num-tbl_item_offset, self.task_num)
         self.fetch_file_list(tbl_name, tbl_item_offset, num)
+
+        self.downer = distdler.DistDownloader()
 
     def prepare_output(self):
         # 1. connect to database
@@ -127,8 +129,10 @@ class FileSync(threading.Thread, object):
             sql_cnt = "SELECT COUNT(*) FROM {tbl}".format(tbl=tbl_name)
             lines, result = mysql.query(sql_cnt)
             if lines == 0:
-                raise Exception("no record in table {tbl}".format(tbl=tbl_name))
-            self.all_tbl[tbl_name] = (string.atol(result[0]), 0) # cnt, offset
+                raise Exception("no record in table {tbl}".format(
+                    tbl=tbl_name))
+            self.all_tbl[tbl_name] = \
+                (string.atol(result[0]), 0, 0)  # capacity, offset, count
 
         # 4. close db connection
         mysql.close()
@@ -138,7 +142,7 @@ class FileSync(threading.Thread, object):
         mysql = self._open_db()
 
         # 2. query file list from database
-        sql = "SELECT Gcid,BusinessType,FileInfo from {tbl} " \
+        sql = "SELECT Gcid,BusinessType,FileInfo FROM {tbl} " \
               "LIMIT {offset},{n}".format(tbl=MYSQL_TBL_FILEINFO,
                                           offset=offset, n=num)
         lines, result = mysql.query(sql)
@@ -162,21 +166,38 @@ class FileSync(threading.Thread, object):
         mysql.close()
 
     def run(self):
-        # 1. dispatch download task
-        tbl_item_num = self.cur_tbl[1][0]
-        tbl_item_offset = self.cur_tbl[1][1]
-        num = min(tbl_item_num-tbl_item_offset, self.task_num)
-        new_task_num = num - len(self.file_list)
-        if new_task_num > 0:
-            tbl_name = self.cur_tbl[0]
-            self.fetch_file_list(tbl_name, tbl_item_offset, new_task_num)
+        while True:
+            # 1. download
+            for f in self.file_list:
+                for extf in f.extfilelst:
+                    fname = os.path.basename(extf[2])
+                    url_path = "/%s/%s/%s" % (fname[0:2], fname[-3:-1], fname)
+                    url = "http://{host}:{port}/{path}".format(
+                        host=VODSLAVE_HOST, port=VODSLAVE_PORT, path=url_path)
+                    task = distdler.Task(url, extf[1])
+                    self.downer.enque_task(task)
 
-        # 2. download
-        for f in self.file_list:
-            for extf in f.extfilelst:
-                pass
+            # 2. dispatch download task
+            tbl_item_capacity = self.cur_tbl[1][0]
+            tbl_item_offset = self.cur_tbl[1][1]
+            tbl_item_count = self.cur_tbl[1][2]
+            num = min(tbl_item_capacity-tbl_item_offset, self.task_num)
+            new_task_num = num - len(self.file_list)
+            if new_task_num > 0:
+                tbl_name = self.cur_tbl[0]
+                self.fetch_file_list(tbl_name, tbl_item_offset, new_task_num)
 
-        time.sleep(3)
+            # 3. process download result, TODO hasn't process failed task
+            tbl_item_count += self.downer.results.qsize()
+            if tbl_item_capacity == tbl_item_count:
+                self.cur_tbl = self.all_tbl.popitem()
+                # 4. download over
+                if not self.all_tbl:
+                    mylog.debug("sync files over!")
+                    break
+            self.cur_tbl[1][2] = tbl_item_count
+
+            time.sleep(3)
 
     def _open_db(self):
         mysql = pymysql.PyMySql()
@@ -184,6 +205,7 @@ class FileSync(threading.Thread, object):
         mysql.connect(host=self.db_host, user=self.user,
                       passwd=self.passwd, dbname=MYSQL_DB_NAME)
         return mysql
+
 
 if __name__ == '__main__':
 
@@ -200,9 +222,9 @@ if __name__ == '__main__':
     mylog.basicConfig(level=mylog.DEBUG, format='%(name)s: %(message)s',)
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hda:p:u:w:b:c:o:",
-            ["help=", "daemon=", "addr=", "port=", "user=", "passwd=", "db=",
-             "tasknum=", "output="])
+        opts, args = getopt.getopt(
+            sys.argv[1:], "hda:p:u:w:b:c:o:", ["help=", "daemon=", "addr=",
+                "port=", "user=", "passwd=", "db=", "tasknum=", "output="])
         if len(opts) is 0:
             mylog.error("%s\n%s" % (sys.argv[0], HELP_MSG))
             sys.exit()
