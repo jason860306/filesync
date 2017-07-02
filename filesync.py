@@ -14,13 +14,13 @@ __email__ = "jason860306@gmail.com"
 import getopt
 import logging as mylog
 import os
-import sys
 import string
+import sys
 import threading
 import time
-import pymysql
-import distdownloader as distdler
 
+import distdownloader as distdler
+import pymysql
 
 MYSQL_DOMAIN = "localhost"
 MYSQL_USER = "root"
@@ -33,7 +33,6 @@ VODSLAVE_HOST = "192.168.58.39"
 VODSLAVE_PORT = 81
 
 TASK_NUM = 10
-TMP_OUTPUT = "/tmp/output"
 
 
 class FileSync(threading.Thread, object):
@@ -49,16 +48,19 @@ class FileSync(threading.Thread, object):
             self.businesstype = 0
             self.fileinfo = ""
             self.extfilelst = []
+            self.dispatched = False
 
         def parse(self):
             """
             |7463890;4F2D59D73D1AF89602757079B8B9F176;/opt/data/rencoder/EF/5F/EFEF705FFDB4D8E1196CC8104650560F78938A5F|
             :return:
             """
-            if len(self.fileinfo) == 0:
+            if not self.fileinfo:
                 raise Exception("fileinfo is empty")
             for finfo in self.fileinfo.split('|'):
                 fields = finfo.split(';')
+                if len(fields) != 3:
+                    return
                 fsize = string.atol(fields[0])
                 fmd5 = fields[1].upper()
                 fpath = fields[2]
@@ -71,16 +73,15 @@ class FileSync(threading.Thread, object):
         self.dbname = MYSQL_DB_NAME
         self.offset = 0
         self.task_num = TASK_NUM
-        self.out_dir = TMP_OUTPUT
         self.all_tbl = {}
-        self.cur_tbl = ()
+        self.cur_tbl = []
         self.file_list = []
-        self.downer = None
+        self.downer = distdler.DistDownloader(mylog)
         super(FileSync, self).__init__(name="thread for filesync")
 
-    def init(self):
+    def _init(self):
         self.prepare_output()
-        if len(self.all_tbl) == 0:
+        if not self.all_tbl:
             self.fetch_filetbl_list()
         self.cur_tbl = self.all_tbl.popitem()
         tbl_name = self.cur_tbl[0]
@@ -89,22 +90,28 @@ class FileSync(threading.Thread, object):
         num = min(tbl_item_num-tbl_item_offset, self.task_num)
         self.fetch_file_list(tbl_name, tbl_item_offset, num)
 
-        self.downer = distdler.DistDownloader()
+        self.downer.start()
 
     def prepare_output(self):
         # 1. connect to database
         mysql = self._open_db()
+        if mysql is None:
+            raise StandardError("open db %s faied" % self.dbname)
 
         # 2. query file list from database
         sql = "SELECT FileDir from {tbl}".format(tbl=MYSQL_TBL_BUSINES_INFO)
-        lines, result = mysql.query(sql)
-        if lines == 0:
-            mylog.fatal("no record in table {tbl}".format(
-                tbl=MYSQL_TBL_BUSINES_INFO))
-            return
-        dataset, info = mysql.fetch_queryresult(result, moreinfo=True)
-        mylog.debug("%s" % dataset)
-        file_dirs = set(dataset)
+        try:
+            lines, result = mysql.query(sql)
+            if lines == 0:
+                raise Exception("no record in table {tbl}".format(
+                    tbl=MYSQL_TBL_BUSINES_INFO))
+            dataset, info = mysql.fetch_queryresult(result, moreinfo=True)
+            file_dirs = set(dataset)
+            for dir in file_dirs:
+                mylog.debug("%s" % dir)
+        except (StandardError, Exception), err:
+            mylog.fatal("%s" % err)
+            raise StandardError("query failed, sql: %s" % sql)
 
         # 3. close db connection
         mysql.close()
@@ -114,25 +121,37 @@ class FileSync(threading.Thread, object):
     def fetch_filetbl_list(self):
         # 1. connect to database
         mysql = self._open_db()
+        if mysql is None:
+            raise StandardError("open db %s faied" % self.dbname)
 
         # 2. query file list from database
-        sql = "SHOW TABLES LIKE {tbl}_%%".format(tbl=MYSQL_TBL_FILEINFO)
-        lines, result = mysql.query(sql)
-        if lines == 0:
-            raise Exception("table {tbl} isn't exist in {db}".format(
-                tbl=MYSQL_TBL_FILEINFO, db=self.dbname))
-        dataset, info = mysql.fetch_queryresult(result, moreinfo=True)
+        sql = "SHOW TABLES LIKE '{tbl}_%'".format(tbl=MYSQL_TBL_FILEINFO)
+        try:
+            lines, result = mysql.query(sql)
+            if lines == 0:
+                raise Exception("table {tbl} isn't exist in {db}".format(
+                    tbl=MYSQL_TBL_FILEINFO, db=self.dbname))
+            dataset, info = mysql.fetch_queryresult(result, moreinfo=True)
+        except (StandardError, Exception), err:
+            mylog.fatal("%s" % err)
+            raise StandardError("query failed, sql: %s" % sql)
 
         # 3. get number of record within each table
         for tbl_name in dataset:
-            mylog.debug("%s" % tbl_name)
-            sql_cnt = "SELECT COUNT(*) FROM {tbl}".format(tbl=tbl_name)
-            lines, result = mysql.query(sql_cnt)
-            if lines == 0:
-                raise Exception("no record in table {tbl}".format(
-                    tbl=tbl_name))
-            self.all_tbl[tbl_name] = \
-                (string.atol(result[0]), 0, 0)  # capacity, offset, count
+            tbl = tbl_name[0]
+            mylog.debug("%s" % tbl)
+            sql_cnt = "SELECT COUNT(*) FROM {tbl}".format(tbl=tbl)
+            try:
+                lines, result = mysql.query(sql_cnt)
+                if lines == 0:
+                    raise Exception("no record in table %s" % tbl)
+                data, info = mysql.fetch_queryresult(result, moreinfo=True)
+                mylog.debug("%s" % repr(data))
+                # capacity, offset, count
+                self.all_tbl[tbl] = [data[0][0], 0, 0]
+            except (StandardError, Exception), err:
+                mylog.fatal("%s" % err)
+                raise StandardError("query failed, sql: %s" % sql_cnt)
 
         # 4. close db connection
         mysql.close()
@@ -140,71 +159,134 @@ class FileSync(threading.Thread, object):
     def fetch_file_list(self, tbl_name, offset, num):
         # 1. connect to database
         mysql = self._open_db()
+        if mysql is None:
+            raise StandardError("open db %s faied" % self.dbname)
 
         # 2. query file list from database
         sql = "SELECT Gcid,BusinessType,FileInfo FROM {tbl} " \
-              "LIMIT {offset},{n}".format(tbl=MYSQL_TBL_FILEINFO,
+              "LIMIT {offset},{n}".format(tbl=tbl_name,
                                           offset=offset, n=num)
-        lines, result = mysql.query(sql)
-        if lines == 0:
-            mylog.fatal("no record in table {tbl}".format(
-                tbl=MYSQL_TBL_FILEINFO))
-            return
-        dataset, info = mysql.fetch_queryresult(result, how=1, moreinfo=True)
-        for item in dataset:
-            finfo = FileSync.FileInfo()
-            finfo.gcid = item['Gcid']
-            finfo.businesstype = item['BusinessType']
-            finfo.fileinfo = item['FileInfo']
-            finfo.parse()
-            self.file_list.append(finfo)
-            mylog.debug("%s" % item)
+        try:
+            lines, result = mysql.query(sql)
+            if lines == 0:
+                raise Exception("no record in table {tbl}".format(
+                    tbl=tbl_name))
+            dataset, info = mysql.fetch_queryresult(result, how=1,
+                                                    moreinfo=True)
+            for item in dataset:
+                finfo = FileSync.FileInfo()
+                finfo.gcid = item['Gcid']
+                finfo.businesstype = item['BusinessType']
+                finfo.fileinfo = item['FileInfo']
+                finfo.parse()
+                self.file_list.append(finfo)
+                mylog.debug("%s" % item)
 
-        self.cur_tbl[1][1] = offset + num
+            self.cur_tbl[1][1] = offset + num
+        except (StandardError, Exception), err:
+            mylog.fatal("%s" % err)
+            raise StandardError("query failed, sql: %s" % sql)
 
         # 3. close db connection
         mysql.close()
 
     def run(self):
+        self._init()
+
         while True:
             # 1. download
             for f in self.file_list:
+                if f.dispatched:
+                    continue
                 for extf in f.extfilelst:
-                    fname = os.path.basename(extf[2])
+                    fmd5 = extf[1]
+                    fpath = extf[2]
+                    dname = os.path.dirname(fpath)
+                    dname = "/tmp/output"
+                    fname = os.path.basename(fpath)
                     url_path = "/%s/%s/%s" % (fname[0:2], fname[-3:-1], fname)
-                    url = "http://{host}:{port}/{path}".format(
+                    down_url = "http://{host}:{port}{path}".format(
                         host=VODSLAVE_HOST, port=VODSLAVE_PORT, path=url_path)
-                    task = distdler.Task(url, extf[1])
+                    down_url = "http://www.baidu.com/"
+                    cmd = "/usr/bin/wget -d -v -c {url} -O {dir}/" \
+                          "{fname}".format(url=down_url, dir=dname, fname=fname)
+                    task = distdler.Task(fname, cmd, fmd5)
                     self.downer.enque_task(task)
+                f.dispatched = True
 
             # 2. dispatch download task
             tbl_item_capacity = self.cur_tbl[1][0]
             tbl_item_offset = self.cur_tbl[1][1]
             tbl_item_count = self.cur_tbl[1][2]
             num = min(tbl_item_capacity-tbl_item_offset, self.task_num)
-            new_task_num = num - len(self.file_list)
+            new_task_num = num - len(self.file_list)  # self._get_flst_len()
             if new_task_num > 0:
                 tbl_name = self.cur_tbl[0]
                 self.fetch_file_list(tbl_name, tbl_item_offset, new_task_num)
 
             # 3. process download result, TODO hasn't process failed task
-            tbl_item_count += self.downer.results.qsize()
+            res_cnt = self.downer.results.qsize()
+            for i in xrange(res_cnt):
+                result = self.downer.results.get()
+                fname = result[0]
+                code = result[1]
+                info = result[2]
+                if code != 0:
+                    pass
+                self._del_file(fname)
+            tbl_item_count += res_cnt / 3
             if tbl_item_capacity == tbl_item_count:
-                self.cur_tbl = self.all_tbl.popitem()
                 # 4. download over
                 if not self.all_tbl:
                     mylog.debug("sync files over!")
+                    self.downer.quit()
                     break
+                self.cur_tbl = self.all_tbl.popitem()
+                tbl_item_capacity = self.cur_tbl[1][0]
+                tbl_item_offset = self.cur_tbl[1][1]
+                tbl_item_count = self.cur_tbl[1][2]
             self.cur_tbl[1][2] = tbl_item_count
 
-            time.sleep(3)
+            time.sleep(1)
+
+    def join(self, timeout=None):
+        self.downer.join_all()
+        super(FileSync, self).join(timeout)
 
     def _open_db(self):
-        mysql = pymysql.PyMySql()
+        mysql = pymysql.PyMySql(mylog)
         # 1. connect to database
-        mysql.connect(host=self.db_host, user=self.user,
-                      passwd=self.passwd, dbname=MYSQL_DB_NAME)
+        try:
+            mysql.connect(host=self.db_host, user=self.user,
+                          passwd=self.passwd, dbname=self.dbname)
+        except StandardError, operr:
+            mylog.fatal("%s" % operr)
+            mysql = None
         return mysql
+
+    def _get_flst_len(self):
+        fcnt = 0
+        for f in self.file_list:
+            fcnt += len(f.extfilelst)
+        return fcnt
+
+    def _del_file(self, fname):
+        idx_flst = -1
+        for fidx in xrange(len(self.file_list)):
+            finfo = self.file_list[fidx]
+
+            idx_del = -1
+            for i in xrange(len(finfo.extfilelst)):
+                if os.path.basename(finfo.extfilelst[i][2]) == fname:
+                    idx_del = i
+                    break
+            if idx_del != -1:
+                del finfo.extfilelst[idx_del]
+                if not finfo.extfilelst:
+                    idx_flst = fidx
+                break
+        if idx_flst != -1:
+            del self.file_list[idx_flst]
 
 
 if __name__ == '__main__':
@@ -217,19 +299,20 @@ if __name__ == '__main__':
                "\t-w,--passwd  passwd for vodslave's database\n" \
                "\t-b,--db      db name\n" \
                "\t-c,--tasknum number of task to download concurrently\n" \
-               "\t-o,--output  output directory for downloading\n"
 
     mylog.basicConfig(level=mylog.DEBUG, format='%(name)s: %(message)s',)
 
     try:
         opts, args = getopt.getopt(
-            sys.argv[1:], "hda:p:u:w:b:c:o:", ["help=", "daemon=", "addr=",
-                "port=", "user=", "passwd=", "db=", "tasknum=", "output="])
-        if len(opts) is 0:
+            sys.argv[1:], "hda:p:u:w:b:c:", ["help=", "daemon=", "addr=",
+                                             "port=", "user=", "passwd=", "db=",
+                                             "tasknum="])
+        if not opts:
             mylog.error("%s\n%s" % (sys.argv[0], HELP_MSG))
             sys.exit()
-    except getopt.GetoptError:
-        mylog.critical("%s\n%s" % (sys.argv[0], HELP_MSG))
+    except getopt.GetoptError, err:
+        mylog.critical("%s" % err)
+        mylog.info("%s\n%s" % (sys.argv[0], HELP_MSG))
         sys.exit(-1)
 
     daemon = False
@@ -252,8 +335,6 @@ if __name__ == '__main__':
             fsync.passwd = arg
         elif opt in ("-c", "--tasknum"):
             fsync.task_num = string.atoi(arg)
-        elif opt in ("-o", "--output"):
-            fsync.out_dir = arg
         else:
             mylog.error("%s\n%s" % (sys.argv[0], HELP_MSG))
             sys.exit()
@@ -297,6 +378,5 @@ if __name__ == '__main__':
             sys.exit(1)
 
     # start the daemon main loop
-    fsync.init()
     fsync.start()
     fsync.join()

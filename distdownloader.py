@@ -12,19 +12,17 @@ __email__ = "jason860306@gmail.com"
 
 
 import multiprocessing as multiproc
+import os
 import subprocess as subproc
 import threading
-import os
-
-
-log = None
 
 
 class Consumer(multiproc.Process):
-    def __init__(self, task_queue, result_queue):
+    def __init__(self, task_queue, result_queue, log):
         super(Consumer, self).__init__()
         self.task_queue = task_queue
         self.result_queue = result_queue
+        self.log = log
 
     def run(self):
         proc_name = self.name
@@ -32,10 +30,9 @@ class Consumer(multiproc.Process):
             next_task = self.task_queue.get()
             if next_task is None:
                 # Poison pill means shutdown
-                print '%s: Exiting' % proc_name
+                self.log.debug('%s: Exiting' % proc_name)
                 self.task_queue.task_done()
                 break
-            print '%s: %s' % (proc_name, next_task)
             answer = next_task()  # __call__()
             self.task_queue.task_done()
             self.result_queue.put(answer)
@@ -50,19 +47,21 @@ class Task(object):
     else:
         FREEMV_INTERACT_RESULT = 1
     """
-    def __init__(self, url, md5):
-        self.url = url
+
+    def __init__(self, fname, md5, cmd):
+        self.fname = fname
         self.fmd5 = md5
+        self.cmd = cmd
         self.ret_val = None
         self.ret_info = None
 
-    def __call__(self, cmd, timeout=60):
+    def __call__(self, timeout=5):
         def timeout_trigger(sub_process):
             """timeout function trigger"""
             os.system("kill -9" + str(sub_process.pid))
         timeout = float(timeout)
-        pipe = subproc.Popen(cmd, 0, None, None, subproc.PIPE, subproc.PIPE,
-                             shell=True)
+        pipe = subproc.Popen(self.cmd, 0, None, None, subproc.PIPE,
+                             subproc.PIPE, shell=True)
         timer = threading.Timer(timeout*60, timeout_trigger, args=(pipe,))
         timer.start()
         pipe.wait()
@@ -70,7 +69,7 @@ class Task(object):
 
         self.ret_val = pipe.returncode
         self.ret_info = pipe.stdout.read()
-        return self.ret_val, self.ret_info
+        return self.fname, self.ret_val, self.ret_info
 
     def __str__(self):
         return '{code}:{info}'.format(code=self.ret_val, info=self.ret_info)
@@ -80,17 +79,21 @@ class DistDownloader(object):
     """
 
     """
-    def __init__(self):
+
+    def __init__(self, log):
         # Establish communication queues
+        self.consumer_cnt = 0
         self.tasks = multiproc.JoinableQueue()
         self.results = multiproc.Queue()
 
+        self.log = log
+
     def start(self):
         # Start consumers
-        num = multiproc.cpu_count()
-        print ('Creating %d consumers' % num)
-        consumers = [Consumer(self.tasks, self.results)
-                     for i in xrange(num)]
+        self.consumer_cnt = multiproc.cpu_count()
+        self.log.debug('Creating %d consumers' % self.consumer_cnt)
+        consumers = [Consumer(self.tasks, self.results, self.log)
+                     for i in xrange(self.consumer_cnt)]
         for consumer in consumers:
             consumer.start()
 
@@ -102,15 +105,23 @@ class DistDownloader(object):
         # Wait for all of the tasks to finish
         self.tasks.join()
 
+    def quit(self):
+        for i in xrange(self.consumer_cnt):
+            self.enque_task(None)
+
 
 if __name__ == '__main__':
-    downer = DistDownloader()
+    import logging as mylog
+
+    mylog.basicConfig(level=mylog.DEBUG, format='%(name)s: %(message)s', )
+
+    downer = DistDownloader(mylog)
     downer.start()
 
     # Enqueue jobs
     num_jobs = 10
     for i in range(num_jobs):
-        downer.enque_task(Task(i, i))
+        downer.enque_task(Task(None, None, None))
 
     # Add a poison pill for each consumer
     num_consumers = multiproc.cpu_count()

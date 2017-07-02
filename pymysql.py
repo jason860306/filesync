@@ -35,12 +35,15 @@ class PyMySql:
     """
 
     """
-    def __init__(self):
+
+    def __init__(self, log):
         self.conn = None
+        self.log = log
 
     def __del__(self):
         self.close()
         self.conn = None
+        self.log = None
 
     def connect(self, host, user, passwd, dbname, timeout=CONN_TIMEOUT,
                 charset=CHARSET_UTF8, port=DB_PORT):
@@ -59,7 +62,8 @@ class PyMySql:
         """
         关闭当前连接
         """
-        self.conn.close()
+        if self.conn.open:
+            self.conn.close()
 
     def query(self, sqltext, mode=STORE_RESULT_MODE):
         """
@@ -196,8 +200,12 @@ if __name__ == "__main__":
     本文主要的所有操作都针对该表。
     """
 
+    import logging as mylog
+
+    mylog.basicConfig(level=mylog.DEBUG, format='%(name)s: %(message)s', )
+
     # 建立连接
-    mysql = PyMySql()
+    mysql = PyMySql(mylog)
     mysql.connect(host="localhost", user="root", passwd="peterbbs",
                   dbname="bookstore")
     ""
