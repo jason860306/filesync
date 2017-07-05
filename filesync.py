@@ -292,7 +292,7 @@ class FileSync(threading.Thread, object):
             tbl_item_count += down_over_cnt
             if tbl_item_capacity == tbl_item_count:
                 # 4. download over
-                if not self.all_tbl:
+                if not self.file_list and not self.all_tbl:
                     self.logger.debug("sync files over!")
                     self.downer.quit()
                     break
@@ -301,12 +301,6 @@ class FileSync(threading.Thread, object):
                 tbl_item_offset = self.cur_tbl[1][1]
                 tbl_item_count = self.cur_tbl[1][2]
             self.cur_tbl[1][2] = tbl_item_count
-
-            if not self.file_list and not self.all_tbl:
-                self.logger.debug("sync files over! it maybe have some "
-                                  "failed tasks")
-                self.downer.quit()
-                break
 
             time.sleep(1)
 
@@ -371,6 +365,8 @@ class FileSync(threading.Thread, object):
         exist_file_cnt = 0
         idx_flst = 0
         while True:
+            if not self.file_list:
+                break
             finfo = self.file_list[idx_flst]
             idx_extflst = 0
             while True:
