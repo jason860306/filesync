@@ -11,10 +11,14 @@ __email__ = "jason860306@gmail.com"
 # '$'
 
 
+import fcntl
 import multiprocessing as multiproc
 import os
+import select
 import subprocess as subproc
+import sys
 import threading
+import time
 
 
 class Consumer(multiproc.Process):
@@ -33,10 +37,10 @@ class Consumer(multiproc.Process):
                 self.log.debug('%s: Exiting' % proc_name)
                 self.task_queue.task_done()
                 break
+            self.log.debug("execute cmd: %s" % next_task.cmd)
             answer = next_task()  # __call__()
             self.task_queue.task_done()
             self.result_queue.put(answer)
-        return
 
 
 class Task(object):
@@ -48,28 +52,52 @@ class Task(object):
         FREEMV_INTERACT_RESULT = 1
     """
 
-    def __init__(self, fname, md5, cmd):
+    def __init__(self, dname, fname, fsize, md5, cmd, timeout, retry_cnt=0):
+        self.dname = dname
         self.fname = fname
+        self.fsize = fsize
         self.fmd5 = md5
         self.cmd = cmd
+        self.timeout = timeout
+        self.retry_cnt = retry_cnt
         self.ret_val = None
-        self.ret_info = None
+        self.ret_info = ""
 
-    def __call__(self, timeout=5):
-        def timeout_trigger(sub_process):
-            """timeout function trigger"""
-            os.system("kill -9" + str(sub_process.pid))
-        timeout = float(timeout)
-        pipe = subproc.Popen(self.cmd, 0, None, None, subproc.PIPE,
-                             subproc.PIPE, shell=True)
-        timer = threading.Timer(timeout*60, timeout_trigger, args=(pipe,))
+        # log_fname = os.path.join(self.dname, self.fname+".log")
+        # mylog.basicConfig(level=mylog.DEBUG, format='%(name)s: %(message)s',
+        #                   filename=log_fname)
+        # self.logger = mylog.getLogger(self.fname)
+
+    def __call__(self):
+        def timeout_trigger((sub_process, ret_info)):
+            ret_info = "timeout function trigger\n"
+            sub_process.kill()
+
+        pipe = subproc.Popen(self.cmd, shell=True, stdin=subproc.PIPE,
+                             stdout=subproc.PIPE, stderr=subproc.PIPE)
+        timer = threading.Timer(float(self.timeout), timeout_trigger,
+                                args=(pipe, self.ret_info))
         timer.start()
-        pipe.wait()
+
+        fl = fcntl.fcntl(pipe.stdout, fcntl.F_GETFL)
+        fcntl.fcntl(pipe.stdout, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+
+        try:
+            while pipe.poll() is None:
+                if select.select([pipe.stdout.fileno()], [], [])[0]:
+                    chunk = pipe.stdout.read()
+                    # self.logger.debug("%s" % chunk)
+                time.sleep(.1)
+        except Exception, ex:
+            self.ret_info += "%s\n" % ex
+        self.ret_info += "command (%s) excute ok!\n" % self.cmd
+
         timer.cancel()
 
+        self.retry_cnt += 1
         self.ret_val = pipe.returncode
-        self.ret_info = pipe.stdout.read()
-        return self.fname, self.ret_val, self.ret_info
+        return self.dname, self.fname, self.fsize, self.fmd5, self.retry_cnt, \
+               self.ret_val, self.ret_info
 
     def __str__(self):
         return '{code}:{info}'.format(code=self.ret_val, info=self.ret_info)
@@ -80,9 +108,9 @@ class DistDownloader(object):
 
     """
 
-    def __init__(self, log):
+    def __init__(self, concurrent_cnt, log):
         # Establish communication queues
-        self.consumer_cnt = 0
+        self.consumer_cnt = concurrent_cnt
         self.tasks = multiproc.JoinableQueue()
         self.results = multiproc.Queue()
 
@@ -90,7 +118,8 @@ class DistDownloader(object):
 
     def start(self):
         # Start consumers
-        self.consumer_cnt = multiproc.cpu_count()
+        if self.consumer_cnt == 0:
+            self.consumer_cnt = multiproc.cpu_count()
         self.log.debug('Creating %d consumers' % self.consumer_cnt)
         consumers = [Consumer(self.tasks, self.results, self.log)
                      for i in xrange(self.consumer_cnt)]
@@ -111,28 +140,66 @@ class DistDownloader(object):
 
 
 if __name__ == '__main__':
-    import logging as mylog
+    # import logging as mylog
+    #
+    # mylog.basicConfig(level=mylog.DEBUG, format='%(name)s: %(message)s', )
+    #
+    # downer = DistDownloader(mylog)
+    # downer.start()
+    #
+    # # Enqueue jobs
+    # num_jobs = 10
+    # for i in range(num_jobs):
+    #     downer.enque_task(Task(None, None, None, 'ls', 0))
+    #
+    # # Add a poison pill for each consumer
+    # num_consumers = multiproc.cpu_count()
+    # for i in range(num_consumers):
+    #     downer.enque_task(None)
+    #
+    # # Wait for all of the tasks to finish
+    # downer.join_all()
+    #
+    # # Start printing results
+    # while num_jobs:
+    #     result = downer.results.get()
+    #     print ('Result:', result)
+    #     num_jobs -= 1
 
-    mylog.basicConfig(level=mylog.DEBUG, format='%(name)s: %(message)s', )
+    # # test retrun info from subprocess
+    # # take shell command output
+    # pattern="2[0-9]%"
+    # message="CAPACITY WARNING"
+    # # ps = subproc.Popen(
+    # #     "sudo /usr/bin/wget -d -v -c http://182.18.58.39:81/E9/4D/E9D09022EE5C349194FB2ACDCCAEC7BD042D9B4D -O /opt/data/rencoder/E9/4D/E9D09022EE5C349194FB2ACDCCAEC7BD042D9B4D",
+    # #     shell=True, stdout=subproc.PIPE, stderr=subproc.PIPE)
+    # ps = subproc.Popen(
+    #     "sudo df -h",
+    #     shell=True, stdout=subproc.PIPE, stderr=subproc.PIPE)
+    #
+    # while True:
+    #     line = ps.stdout.readline()
+    #     if not line:
+    #         break
+    #     print "%s" % line
+    #
+    # ret_val = ps.returncode
 
-    downer = DistDownloader(mylog)
-    downer.start()
+    # test retrun info from subprocess asynchronously
+    proc = subproc.Popen(
+        'sudo /usr/bin/wget -d -v -c http://182.18.58.39:81/E9/4D/E9D09022EE5C349194FB2ACDCCAEC7BD042D9B4D -O /tmp/E9D09022EE5C349194FB2ACDCCAEC7BD042D9B4D 2>&1',
+        shell=True, stdin=subproc.PIPE, stdout=subproc.PIPE,
+        stderr=subproc.PIPE)
 
-    # Enqueue jobs
-    num_jobs = 10
-    for i in range(num_jobs):
-        downer.enque_task(Task(None, None, None))
+    fl = fcntl.fcntl(proc.stdout, fcntl.F_GETFL)
+    fcntl.fcntl(proc.stdout, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
-    # Add a poison pill for each consumer
-    num_consumers = multiproc.cpu_count()
-    for i in range(num_consumers):
-        downer.enque_task(None)
-
-    # Wait for all of the tasks to finish
-    downer.join_all()
-
-    # Start printing results
-    while num_jobs:
-        result = downer.results.get()
-        print ('Result:', result)
-        num_jobs -= 1
+    try:
+        while proc.poll() is None:
+            readx = select.select([proc.stdout.fileno()], [], [])[0]
+            if readx:
+                chunk = proc.stdout.read()
+                sys.stdout.write(chunk)
+            time.sleep(.1)
+    except Exception, ex:
+        print ex
